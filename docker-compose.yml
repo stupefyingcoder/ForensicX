@@ -1,0 +1,31 @@
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - backend-data:/app/data_store
+      - backend-weights:/app/weights
+    environment:
+      - JWT_SECRET=change-this-in-production
+      - ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
+      - MODEL_DEVICE=cpu
+    deploy:
+      resources:
+        limits:
+          memory: 4g
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_BASE=http://127.0.0.1:8000/api
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  backend-data:
+  backend-weights:

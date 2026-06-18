@@ -1,0 +1,31 @@
+# OS/editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+.venv/
+venv/
+
+# FastAPI/backend local runtime data
+backend/forensic_app.db
+backend/data_store/
+
+# Node/frontend
+frontend/node_modules/
+frontend/dist/
+
+# Model weights (downloaded at runtime)
+backend/weights/*.pth
+
+# Logs
+*.log
