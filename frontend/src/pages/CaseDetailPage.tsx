@@ -10,23 +10,29 @@ export function CaseDetailPage() {
   const id = Number(caseId);
   const { data, isLoading, error: fetchError } = useCase(id);
   const upload = useUploadImage(id);
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
+  const [uploadInputKey, setUploadInputKey] = useState(0);
   const [info, setInfo] = useState("");
   const [fileError, setFileError] = useState("");
 
   async function handleUpload(event: FormEvent) {
     event.preventDefault();
-    if (!file) return;
-    if (file.size > MAX_FILE_SIZE) {
-      setFileError("File too large. Maximum size is 20MB.");
+    if (files.length === 0) return;
+    const oversized = files.find((file) => file.size > MAX_FILE_SIZE);
+    if (oversized) {
+      setFileError(`"${oversized.name}" is too large. Maximum size is 20MB.`);
       return;
     }
     setFileError("");
     setInfo("");
     try {
-      const uploaded = await upload.mutateAsync(file);
-      setFile(null);
-      setInfo(`Uploaded "${String(uploaded.metadata_json.filename ?? uploaded.original_path)}" successfully.`);
+      const uploaded = [];
+      for (const selectedFile of files) {
+        uploaded.push(await upload.mutateAsync(selectedFile));
+      }
+      setFiles([]);
+      setUploadInputKey((value) => value + 1);
+      setInfo(`Uploaded ${uploaded.length} image${uploaded.length === 1 ? "" : "s"} successfully.`);
     } catch {
       // error available via upload.error
     }
@@ -41,10 +47,17 @@ export function CaseDetailPage() {
         <p className="case-title">{data?.title}</p>
         <p className="muted">{data?.description}</p>
         <form onSubmit={handleUpload} className="form-grid">
-          <label htmlFor="upload-image">Upload Image</label>
-          <input id="upload-image" type="file" accept="image/*" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
-          <button type="submit" disabled={!file || upload.isPending}>
-            {upload.isPending ? "Uploading..." : "Upload"}
+          <label htmlFor="upload-image">Upload Images</label>
+          <input
+            key={uploadInputKey}
+            id="upload-image"
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={(e) => setFiles(Array.from(e.target.files ?? []))}
+          />
+          <button type="submit" disabled={files.length === 0 || upload.isPending}>
+            {upload.isPending ? "Uploading..." : `Upload ${files.length || ""}`.trim()}
           </button>
         </form>
       </section>

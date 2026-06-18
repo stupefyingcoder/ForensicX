@@ -342,6 +342,15 @@ button:disabled {
   border-radius: 0;
 }
 
+.artifact-placeholder {
+  min-height: 130px;
+  border: 1px solid var(--border);
+  padding: 0.75rem;
+  display: grid;
+  align-content: center;
+  gap: 0.5rem;
+}
+
 /* ===== COMPARE SLIDER ===== */
 
 .compare-slider {

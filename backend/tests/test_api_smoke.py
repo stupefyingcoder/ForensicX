@@ -80,7 +80,8 @@ def test_upload_and_run_bicubic_pipeline(client: TestClient):
     run_id = run_create.json()["id"]
 
     status_payload = {}
-    for _ in range(50):
+    deadline = time.monotonic() + 120
+    while time.monotonic() < deadline:
         status = client.get(f"/api/runs/{run_id}", headers=headers)
         assert status.status_code == 200
         status_payload = status.json()

@@ -19,16 +19,15 @@ export function RunComparisonPage() {
   const createRun = useCreateRun();
   const uploadRef = useUploadImage(caseNumericId);
 
-  const [includeSrgan, setIncludeSrgan] = useState(true);
-  const [includeRealesr, setIncludeRealesr] = useState(true);
+  const [includeSrgan, setIncludeSrgan] = useState(false);
+  const [includeRealesr, setIncludeRealesr] = useState(false);
   const [includeBicubic, setIncludeBicubic] = useState(true);
   const [includeBsrgan, setIncludeBsrgan] = useState(false);
   const [referenceImageId, setReferenceImageId] = useState("");
-  const [faceReferenceImageId, setFaceReferenceImageId] = useState("");
   const [referenceText, setReferenceText] = useState("");
   const [preprocess, setPreprocess] = useState("auto");
   const [denoiseStrength, setDenoiseStrength] = useState(10);
-  const [referenceUploadFile, setReferenceUploadFile] = useState<File | null>(null);
+  const [referenceUploadFiles, setReferenceUploadFiles] = useState<File[]>([]);
   const [uploadInputKey, setUploadInputKey] = useState(0);
   const [info, setInfo] = useState("");
   const [error, setError] = useState("");
@@ -71,7 +70,6 @@ export function RunComparisonPage() {
         models,
         scale: 4,
         reference_image_id: referenceImageId ? Number(referenceImageId) : null,
-        face_reference_image_id: faceReferenceImageId ? Number(faceReferenceImageId) : null,
         reference_text: referenceText || null,
         preprocess,
         denoise_strength: denoiseStrength,
@@ -81,15 +79,21 @@ export function RunComparisonPage() {
 
   async function handleReferenceUpload(event: FormEvent) {
     event.preventDefault();
-    if (!referenceUploadFile) return;
+    if (referenceUploadFiles.length === 0) return;
     setError("");
     setInfo("");
     try {
-      const uploaded = await uploadRef.mutateAsync(referenceUploadFile);
-      setReferenceImageId(String(uploaded.id));
-      setReferenceUploadFile(null);
+      const uploaded = [];
+      for (const file of referenceUploadFiles) {
+        uploaded.push(await uploadRef.mutateAsync(file));
+      }
+      const lastUploaded = uploaded[uploaded.length - 1];
+      if (lastUploaded) {
+        setReferenceImageId(String(lastUploaded.id));
+      }
+      setReferenceUploadFiles([]);
       setUploadInputKey((v) => v + 1);
-      setInfo("Reference image uploaded and selected for quality metrics.");
+      setInfo(`Uploaded ${uploaded.length} reference image${uploaded.length === 1 ? "" : "s"}. The last upload is selected for quality metrics.`);
     } catch { /* mutation error rendered via hook */ }
   }
 
@@ -135,22 +139,22 @@ export function RunComparisonPage() {
         {selectedQualityIsInput ? (
           <div className="warning-inline">Selected quality reference is same as input. Pick another image.</div>
         ) : null}
-        <label>Face Reference Image (optional, enables face similarity)</label>
-        <select value={faceReferenceImageId} onChange={(e) => setFaceReferenceImageId(e.target.value)}>
-          <option value="">None</option>
-          {imageOptions.map((opt) => (<option key={opt.id} value={opt.id}>{opt.label}</option>))}
-        </select>
-        <small className="hint">Choose a clear face image of the same person to calculate face similarity score.</small>
         <button type="submit" disabled={selectedQualityIsInput || createRun.isPending}>
           {createRun.isPending ? "Starting..." : "Start Run"}
         </button>
       </form>
 
       <form onSubmit={handleReferenceUpload} className="form-grid top-gap">
-        <label>Need to upload a new reference image?</label>
-        <input key={uploadInputKey} type="file" accept="image/*" onChange={(e) => setReferenceUploadFile(e.target.files?.[0] ?? null)} />
-        <button type="submit" disabled={!referenceUploadFile || uploadRef.isPending}>
-          {uploadRef.isPending ? "Uploading..." : "Upload Reference Image"}
+        <label>Need to upload new reference images?</label>
+        <input
+          key={uploadInputKey}
+          type="file"
+          accept="image/*"
+          multiple
+          onChange={(e) => setReferenceUploadFiles(Array.from(e.target.files ?? []))}
+        />
+        <button type="submit" disabled={referenceUploadFiles.length === 0 || uploadRef.isPending}>
+          {uploadRef.isPending ? "Uploading..." : `Upload ${referenceUploadFiles.length || ""} Reference Image${referenceUploadFiles.length === 1 ? "" : "s"}`.trim()}
         </button>
       </form>
 

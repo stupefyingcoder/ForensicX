@@ -2,9 +2,10 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useRunStatus, useRunResults } from "../hooks/useRuns";
 import { useRunProgress } from "../hooks/useRunProgress";
+import { useCase } from "../hooks/useCases";
 import { filesApi } from "../api/client";
 import { DisclaimerBanner } from "../components/DisclaimerBanner";
-import type { RunMetric } from "../api/types";
+import type { ImageAsset, RunMetric } from "../api/types";
 
 function fmtMetric(value: number | null | undefined, digits = 4): string {
   if (value === null || value === undefined || !Number.isFinite(value)) return "—";
@@ -27,6 +28,15 @@ function ArtifactImage({ path, alt }: { path: string; alt: string }) {
   if (error) return <div className="hint">Failed to load image</div>;
   if (!src) return <div className="hint">Loading...</div>;
   return <img src={src} alt={alt} />;
+}
+
+function imageName(image: ImageAsset | undefined): string {
+  if (!image) return "";
+  return String(image.metadata_json.filename ?? image.original_path);
+}
+
+function configNumber(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
 function CompareSlider({ beforePath, afterPath, title }: { beforePath: string; afterPath: string; title: string }) {
@@ -93,7 +103,6 @@ function hasQualityMetrics(m: RunMetric): boolean {
 function MetricsTable({ metrics }: { metrics: RunMetric[] }) {
   const hasQuality = metrics.some(hasQualityMetrics);
   const hasOcr = metrics.some((m) => m.ocr_json.available);
-  const hasFace = metrics.some((m) => m.face_json.available);
 
   return (
     <div>
@@ -159,33 +168,6 @@ function MetricsTable({ metrics }: { metrics: RunMetric[] }) {
         </div>
       )}
 
-      {/* Face Similarity */}
-      {hasFace ? (
-        <>
-          <div className="metric-section-label" style={{ marginTop: "1.5rem" }}>FACE SIMILARITY</div>
-          <table className="metrics-table">
-            <thead>
-              <tr>
-                <th>Model</th>
-                <th>Similarity Score</th>
-              </tr>
-            </thead>
-            <tbody>
-              {metrics.filter((m) => m.face_json.available).map((m) => (
-                <tr key={m.model_name}>
-                  <td className="model-name-cell">{m.model_name}</td>
-                  <td className="metric-value">{fmtMetric(m.face_json.score, 4)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </>
-      ) : (
-        <div className="metric-hint-box" style={{ marginTop: "1.5rem" }}>
-          <div className="metric-section-label">FACE SIMILARITY</div>
-          <span className="hint">Select a Face Reference Image when creating the run to enable face similarity scoring.</span>
-        </div>
-      )}
     </div>
   );
 }
@@ -202,9 +184,14 @@ export function MetricsPage() {
   const isComplete = status?.status === "completed";
   const isFailed = status?.status === "failed";
   const { data: results } = useRunResults(id, isComplete);
+  const { data: caseData } = useCase(status?.case_id ?? 0);
 
   useRunProgress(id);
 
+  const inputImageId = configNumber(status?.config_json.image_id);
+  const referenceImageId = configNumber(status?.config_json.reference_image_id);
+  const inputImage = caseData?.images.find((img) => img.id === inputImageId);
+  const referenceImage = caseData?.images.find((img) => img.id === referenceImageId);
   const bicubicOutput = results?.outputs.find((o) => o.model_name === "bicubic");
 
   return (
@@ -232,9 +219,26 @@ export function MetricsPage() {
               {results.outputs.map((o) => (
                 <li key={o.model_name}>
                   <div className="model-name-cell">{o.model_name}</div>
-                  <div className="artifact-grid">
+                  <div className="artifact-grid comparison-grid">
+                    {inputImage ? (
+                      <div>
+                        <small>Original: {imageName(inputImage)}</small>
+                        <ArtifactImage path={inputImage.original_path} alt="original input" />
+                      </div>
+                    ) : null}
+                    {referenceImage ? (
+                      <div>
+                        <small>Reference: {imageName(referenceImage)}</small>
+                        <ArtifactImage path={referenceImage.original_path} alt="quality reference" />
+                      </div>
+                    ) : (
+                      <div className="artifact-placeholder">
+                        <small>Reference</small>
+                        <span className="hint">No quality reference selected.</span>
+                      </div>
+                    )}
                     <div>
-                      <small>Output</small>
+                      <small>Enhanced</small>
                       <ArtifactImage path={o.output_path} alt={`${o.model_name} output`} />
                     </div>
                     {bicubicOutput && o.model_name !== "bicubic" ? (
@@ -244,13 +248,13 @@ export function MetricsPage() {
                         title={`${o.model_name} vs bicubic`}
                       />
                     ) : null}
-                    {o.diff_path ? (
+                    {o.diff_path && o.model_name !== "bicubic" ? (
                       <div>
-                        <small>Diff Map</small>
+                        <small>Diff Map vs Bicubic</small>
                         <ArtifactImage path={o.diff_path} alt={`${o.model_name} diff`} />
                       </div>
                     ) : null}
-                    {o.roi_compare_path ? (
+                    {o.roi_compare_path && o.model_name !== "bicubic" ? (
                       <div>
                         <small>ROI Detail</small>
                         <ArtifactImage path={o.roi_compare_path} alt={`${o.model_name} roi compare`} />

@@ -9,6 +9,7 @@ from PIL import Image
 import torch
 import torchvision.transforms as T
 
+from app.core.logging import logger
 from app.core.config import settings
 from app.services.deblur import preprocess_image
 from app.services.model_registry import model_cache
@@ -149,7 +150,11 @@ def run_models(
         if key == "bicubic":
             out = bicubic
         else:
-            out = _infer_model(key, image)
+            try:
+                out = _infer_model(key, image)
+            except FileNotFoundError as exc:
+                logger.warning("Skipping model %s because weights are missing: %s", key, exc)
+                continue
             if out is None:
                 continue
 
@@ -165,5 +170,8 @@ def run_models(
         roi_cmp.save(roi_path)
 
         results.append(ModelResult(model_name=key, output_path=out_path, diff_path=diff_path, roi_compare_path=roi_path))
+
+    if not results:
+        raise RuntimeError("No selected models could run. Install model weights or select Bicubic.")
 
     return results

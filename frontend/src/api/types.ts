@@ -52,7 +52,6 @@ export interface CreateRunRequest {
   roi?: ROI | null;
   reference_image_id?: number | null;
   reference_text?: string | null;
-  face_reference_image_id?: number | null;
   preprocess?: string;       // "auto" | "deblur" | "none"
   denoise_strength?: number; // 0-30, default 10
 }
