@@ -364,6 +364,33 @@ button:disabled {
   cursor: pointer;
 }
 
+/* Group a method checkbox with its plain-language description */
+.model-option {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.25rem 0;
+  border-left: 2px solid var(--border);
+  padding-left: 0.75rem;
+}
+
+.model-option .hint {
+  font-size: 0.78125rem;
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 400;
+}
+
+/* Unavailable method (e.g. SRGAN without weights) */
+.check-row-disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.check-row-disabled input[type="checkbox"] {
+  cursor: not-allowed;
+}
+
 /* ===== ARTIFACTS / IMAGES ===== */
 
 .artifact-grid {
