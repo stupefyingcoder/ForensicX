@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
@@ -13,6 +11,7 @@ from app.models.experiment import Experiment
 from app.models.user import User
 from app.schemas.report import ExportOut, ReportGenerateRequest
 from app.services.report_service import generate_case_report, generate_experiment_report
+from app.storage import resolve_artifact_path
 
 
 router = APIRouter(prefix="/reports", tags=["reports"])
@@ -55,8 +54,8 @@ def get_report(
     export = db.query(Export).filter(Export.id == export_id).first()
     if not export:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Report export not found.")
-    path = Path(export.file_path)
-    if not path.exists():
+    path = resolve_artifact_path(export.file_path)
+    if path is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Report file missing.")
     media_type = "text/markdown" if path.suffix.lower() == ".md" else "text/plain"
     return FileResponse(path, filename=path.name, media_type=media_type)

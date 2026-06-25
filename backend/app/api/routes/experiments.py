@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
@@ -11,6 +9,7 @@ from app.models.experiment import Experiment
 from app.models.user import User
 from app.schemas.experiment import ExperimentBatchCreate, ExperimentOut
 from app.services.jobs import job_manager
+from app.storage import resolve_artifact_path
 
 
 router = APIRouter(prefix="/experiments", tags=["experiments"])
@@ -55,7 +54,7 @@ def get_experiment_csv(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Experiment not found.")
     if not exp.csv_path:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="CSV not generated yet.")
-    path = Path(exp.csv_path)
-    if not path.exists():
+    path = resolve_artifact_path(exp.csv_path)
+    if path is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="CSV file missing on disk.")
     return FileResponse(path, filename=path.name, media_type="text/csv")
