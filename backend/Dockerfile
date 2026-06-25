@@ -8,7 +8,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Install CPU-only torch/torchvision first so the generic version specifiers in
+# requirements.txt are already satisfied and pip does NOT pull the ~2GB CUDA
+# wheels (no GPU on Hugging Face's free CPU Spaces). Cuts image size and build time.
+RUN pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cpu \
+    && pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 

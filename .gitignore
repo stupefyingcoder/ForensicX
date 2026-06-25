@@ -29,3 +29,6 @@ backend/weights/*.pth
 
 # Logs
 *.log
+
+# Local runtime (caches, generated secrets)
+.runtime/

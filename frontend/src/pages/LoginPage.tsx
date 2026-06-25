@@ -1,20 +1,16 @@
 import { FormEvent, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import type { ApiError } from "../api/types";
 
 function formatError(err: unknown): string {
   if (typeof err === "object" && err !== null && "message" in err) {
-    const apiErr = err as ApiError;
-    if (apiErr.fieldErrors?.password) return apiErr.fieldErrors.password[0];
-    if (apiErr.fieldErrors?.email) return apiErr.fieldErrors.email[0];
-    return apiErr.message;
+    return String((err as Error).message);
   }
   return String(err);
 }
 
 export function LoginPage() {
-  const { login, register } = useAuth();
+  const { isAuthenticated, isLoading, login, register } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -32,7 +28,7 @@ export function LoginPage() {
       } else {
         await login(email, password);
       }
-      navigate("/", { replace: true });
+      navigate("/dashboard", { replace: true });
     } catch (e) {
       setError(formatError(e));
     } finally {
@@ -40,15 +36,18 @@ export function LoginPage() {
     }
   }
 
+  if (isLoading) return <div className="loading-spinner">Loading...</div>;
+  if (isAuthenticated) return <Navigate to="/dashboard" replace />;
+
   return (
     <section className="card auth-card">
       <h2>{isRegister ? "Create Account" : "Login"}</h2>
       <p className="hint">Secure access to your forensic enhancement workspace.</p>
       <form onSubmit={handleSubmit} className="form-grid auth-form">
         <label htmlFor="email">Email</label>
-        <input id="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+        <input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
         <label htmlFor="password">Password</label>
-        <input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+        <input id="password" type="password" minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} required />
         {isRegister ? <small className="hint">Use at least 8 characters for password.</small> : null}
         <button type="submit" disabled={loading}>
           {loading ? "Please wait..." : isRegister ? "Register" : "Login"}

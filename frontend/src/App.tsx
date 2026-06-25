@@ -1,8 +1,9 @@
-import { Link, Navigate, Route, Routes } from "react-router-dom";
+import { Link, Navigate, NavLink, Route, Routes } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { Grain } from "./components/Grain";
 import { Scanlines } from "./components/Scanlines";
+import { LandingPage } from "./pages/LandingPage";
 import { LoginPage } from "./pages/LoginPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { CaseDetailPage } from "./pages/CaseDetailPage";
@@ -11,18 +12,27 @@ import { MetricsPage } from "./pages/MetricsPage";
 import { ResearchExportPage } from "./pages/ResearchExportPage";
 import { AnalysisPage } from "./pages/AnalysisPage";
 
+function navLinkClass({ isActive }: { isActive: boolean }) {
+  return isActive ? "nav-link nav-link-active" : "nav-link";
+}
+
 function TopNav() {
-  const { isAuthenticated, logout } = useAuth();
+  const { isAuthenticated, logout, userEmail } = useAuth();
   return (
     <header className="topnav">
-      <h1 className="brand-title">Forensic Enhancement Assistant</h1>
+      <Link className="brand-title" to="/">ForensicX</Link>
       {isAuthenticated ? (
         <nav className="row nav-actions">
-          <Link className="nav-link" to="/">Dashboard</Link>
-          <Link className="nav-link" to="/experiments">Experiments</Link>
+          <NavLink className={navLinkClass} to="/dashboard">Dashboard</NavLink>
+          <NavLink className={navLinkClass} to="/experiments">Experiments</NavLink>
+          <span className="user-chip">{userEmail}</span>
           <button className="nav-link" onClick={() => void logout()}>Logout</button>
         </nav>
-      ) : null}
+      ) : (
+        <nav className="row nav-actions">
+          <Link className="nav-link nav-link-cta" to="/login">Launch Application</Link>
+        </nav>
+      )}
     </header>
   );
 }
@@ -42,8 +52,9 @@ function AppRoutes() {
       <TopNav />
       <main className="container app-shell">
         <Routes>
+          <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
-          <Route path="/" element={<Protected><DashboardPage /></Protected>} />
+          <Route path="/dashboard" element={<Protected><DashboardPage /></Protected>} />
           <Route path="/cases/:caseId" element={<Protected><CaseDetailPage /></Protected>} />
           <Route path="/cases/:caseId/run" element={<Protected><RunComparisonPage /></Protected>} />
           <Route path="/runs/:runId/metrics" element={<Protected><MetricsPage /></Protected>} />

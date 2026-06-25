@@ -59,10 +59,16 @@ def _bicubic_infer(image: Image.Image, scale: int) -> Image.Image:
 def _diff_map(reference: Image.Image, candidate: Image.Image) -> Image.Image:
     if reference.size != candidate.size:
         candidate = candidate.resize(reference.size, Image.Resampling.BICUBIC)
-    ref_arr = np.asarray(reference, dtype=np.float32)
-    cand_arr = np.asarray(candidate, dtype=np.float32)
-    diff = np.abs(cand_arr - ref_arr) * 6.0
-    return Image.fromarray(np.clip(diff, 0, 255).astype(np.uint8))
+    # Compute in int16 and operate in place to keep peak memory low. The old
+    # float32 path allocated several full-size temporaries and could OOM on a
+    # 2048px output (numpy _ArrayMemoryError).
+    ref_arr = np.asarray(reference, dtype=np.int16)
+    diff = np.asarray(candidate, dtype=np.int16)
+    diff -= ref_arr
+    np.abs(diff, out=diff)
+    diff *= 6
+    np.clip(diff, 0, 255, out=diff)
+    return Image.fromarray(diff.astype(np.uint8))
 
 
 def _clamp_roi(image: Image.Image, roi: ROI | None) -> tuple[int, int, int, int]:
@@ -147,29 +153,35 @@ def run_models(
     for model_name in models:
         key = model_name.lower()
 
-        if key == "bicubic":
-            out = bicubic
-        else:
-            try:
-                out = _infer_model(key, image)
-            except FileNotFoundError as exc:
-                logger.warning("Skipping model %s because weights are missing: %s", key, exc)
-                continue
-            if out is None:
-                continue
+        try:
+            if key == "bicubic":
+                out = bicubic
+            else:
+                try:
+                    out = _infer_model(key, image)
+                except FileNotFoundError as exc:
+                    logger.warning("Skipping model %s because weights are missing: %s", key, exc)
+                    continue
+                if out is None:
+                    continue
 
-        out_path = output_dir / f"{key}_output.png"
-        out.save(out_path)
+            out_path = output_dir / f"{key}_output.png"
+            out.save(out_path)
 
-        diff = _diff_map(bicubic, out)
-        diff_path = compare_dir / f"{key}_diff_vs_bicubic.png"
-        diff.save(diff_path)
+            diff = _diff_map(bicubic, out)
+            diff_path = compare_dir / f"{key}_diff_vs_bicubic.png"
+            diff.save(diff_path)
 
-        roi_cmp = _roi_compare(bicubic, out, roi)
-        roi_path = compare_dir / f"{key}_roi_compare.png"
-        roi_cmp.save(roi_path)
+            roi_cmp = _roi_compare(bicubic, out, roi)
+            roi_path = compare_dir / f"{key}_roi_compare.png"
+            roi_cmp.save(roi_path)
 
-        results.append(ModelResult(model_name=key, output_path=out_path, diff_path=diff_path, roi_compare_path=roi_path))
+            results.append(ModelResult(model_name=key, output_path=out_path, diff_path=diff_path, roi_compare_path=roi_path))
+        except MemoryError:
+            # numpy's _ArrayMemoryError subclasses MemoryError. Skip this model
+            # rather than failing the whole run; other models may still fit.
+            logger.warning("Skipping model %s: ran out of memory during processing", key)
+            continue
 
     if not results:
         raise RuntimeError("No selected models could run. Install model weights or select Bicubic.")

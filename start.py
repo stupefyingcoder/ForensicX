@@ -152,10 +152,28 @@ def main() -> None:
         log("Creating frontend .env...")
         frontend_env.write_text("VITE_API_BASE=http://127.0.0.1:8000/api\n")
 
+    # --- Ensure a strong JWT secret (persisted across runs) ---
+    # Without this the app falls back to the built-in default ("change-this-in-
+    # production", 25 bytes) which is insecure and below JWT's 32-byte minimum.
+    if not os.environ.get("JWT_SECRET"):
+        jwt_secret_file = RUNTIME_DIR / "jwt_secret"
+        if jwt_secret_file.exists():
+            os.environ["JWT_SECRET"] = jwt_secret_file.read_text(encoding="utf-8").strip()
+        else:
+            import secrets
+            secret = secrets.token_hex(32)  # 64 hex chars
+            jwt_secret_file.write_text(secret, encoding="utf-8")
+            os.environ["JWT_SECRET"] = secret
+            log("Generated a new JWT secret (stored in .runtime/jwt_secret).")
+
     # --- Start backend ---
     log("Starting backend on http://127.0.0.1:8000 ...")
     backend = subprocess.Popen(
-        [str(VENV_UVICORN), "app.main:app", "--reload", "--port", "8000", "--host", "127.0.0.1"],
+        # --reload-dir app: only watch source, not the venv. Watching the whole
+        # backend dir made StatReload walk thousands of venv files and crash on
+        # Windows with WinError 1450 (insufficient system resources).
+        [str(VENV_UVICORN), "app.main:app", "--reload", "--reload-dir", "app",
+         "--port", "8000", "--host", "127.0.0.1"],
         cwd=BACKEND_DIR,
     )
     processes.append(backend)
