@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useParams } from "react-router-dom";
 import { useRunStatus, useRunResults } from "../hooks/useRuns";
 import { useRunProgress } from "../hooks/useRunProgress";
@@ -13,21 +13,25 @@ function fmtMetric(value: number | null | undefined, digits = 4): string {
 }
 
 function ArtifactImage({ path, alt }: { path: string; alt: string }) {
-  const [src, setSrc] = useState<string>("");
   const [error, setError] = useState(false);
-  useEffect(() => {
-    let cancelled = false;
-    let blobUrl: string | null = null;
-    filesApi.getArtifactUrl(path).then((url) => {
-      if (cancelled) { URL.revokeObjectURL(url); return; }
-      blobUrl = url;
-      setSrc(url);
-    }).catch(() => { if (!cancelled) setError(true); });
-    return () => { cancelled = true; if (blobUrl) URL.revokeObjectURL(blobUrl); };
-  }, [path]);
-  if (error) return <div className="hint">Failed to load image</div>;
-  if (!src) return <div className="hint">Loading...</div>;
-  return <img src={src} alt={alt} />;
+  const [loaded, setLoaded] = useState(false);
+  // Load natively via <img src> so the browser handles connection limits, caching
+  // and retries — no fixed client-side timeout (the old fetch+blob path aborted at
+  // 30s and failed on the free-tier backend under many concurrent requests).
+  return (
+    <>
+      {!loaded && !error ? <div className="hint">Loading…</div> : null}
+      {error ? <div className="hint">Failed to load image</div> : null}
+      <img
+        src={filesApi.buildUrl(path)}
+        alt={alt}
+        loading="lazy"
+        onLoad={() => setLoaded(true)}
+        onError={() => setError(true)}
+        style={error ? { display: "none" } : undefined}
+      />
+    </>
+  );
 }
 
 function imageName(image: ImageAsset | undefined): string {
@@ -41,36 +45,14 @@ function configNumber(value: unknown): number | null {
 
 function CompareSlider({ beforePath, afterPath, title }: { beforePath: string; afterPath: string; title: string }) {
   const [position, setPosition] = useState(50);
-  const [beforeSrc, setBeforeSrc] = useState("");
-  const [afterSrc, setAfterSrc] = useState("");
-
-  useEffect(() => {
-    let cancelled = false;
-    let revokeBefore: string | null = null;
-    let revokeAfter: string | null = null;
-    filesApi.getArtifactUrl(beforePath).then((url) => {
-      if (cancelled) { URL.revokeObjectURL(url); return; }
-      revokeBefore = url;
-      setBeforeSrc(url);
-    }).catch(() => {});
-    filesApi.getArtifactUrl(afterPath).then((url) => {
-      if (cancelled) { URL.revokeObjectURL(url); return; }
-      revokeAfter = url;
-      setAfterSrc(url);
-    }).catch(() => {});
-    return () => {
-      cancelled = true;
-      if (revokeBefore) URL.revokeObjectURL(revokeBefore);
-      if (revokeAfter) URL.revokeObjectURL(revokeAfter);
-    };
-  }, [beforePath, afterPath]);
+  // Native <img src> loading — browser-managed, no client timeout.
+  const beforeSrc = filesApi.buildUrl(beforePath);
+  const afterSrc = filesApi.buildUrl(afterPath);
 
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key === "ArrowLeft") setPosition((p) => Math.max(0, p - 2));
     if (e.key === "ArrowRight") setPosition((p) => Math.min(100, p + 2));
   }
-
-  if (!beforeSrc || !afterSrc) return <div className="hint">Loading comparison...</div>;
 
   return (
     <div>

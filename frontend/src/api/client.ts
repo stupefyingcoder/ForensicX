@@ -210,4 +210,12 @@ export const analysisApi = {
 export const filesApi = {
   getArtifactUrl: (path: string) =>
     requestBlob(`/files?path=${encodeURIComponent(path)}`),
+  // Direct, tokenized URL for native <img src> loading. Lets the browser fetch
+  // images itself — it manages connection limits, caching and retries, and (unlike
+  // the fetch+blob path) never aborts on a fixed client timeout. The /files endpoint
+  // accepts the JWT via the `token` query param.
+  buildUrl: (path: string) => {
+    const token = getToken?.() ?? "";
+    return `${API_BASE}/files?path=${encodeURIComponent(path)}&token=${encodeURIComponent(token)}`;
+  },
 };

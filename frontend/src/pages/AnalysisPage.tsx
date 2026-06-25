@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useLocation, useParams } from "react-router-dom";
 import { useCase } from "../hooks/useCases";
 import { useCreateAnalysis, useAnalysisResult } from "../hooks/useAnalysis";
@@ -11,21 +11,23 @@ function useQueryParams() {
 }
 
 function ArtifactImage({ path, alt }: { path: string; alt: string }) {
-  const [src, setSrc] = useState("");
   const [error, setError] = useState(false);
-  useEffect(() => {
-    let cancelled = false;
-    let blobUrl: string | null = null;
-    filesApi.getArtifactUrl(path).then((url) => {
-      if (cancelled) { URL.revokeObjectURL(url); return; }
-      blobUrl = url;
-      setSrc(url);
-    }).catch(() => { if (!cancelled) setError(true); });
-    return () => { cancelled = true; if (blobUrl) URL.revokeObjectURL(blobUrl); };
-  }, [path]);
-  if (error) return <div className="hint">Failed to load image</div>;
-  if (!src) return <div className="hint">Loading...</div>;
-  return <img src={src} alt={alt} style={{ maxWidth: "100%", borderRadius: "8px" }} />;
+  const [loaded, setLoaded] = useState(false);
+  // Native browser image loading — no client timeout (see MetricsPage note).
+  return (
+    <>
+      {!loaded && !error ? <div className="hint">Loading…</div> : null}
+      {error ? <div className="hint">Failed to load image</div> : null}
+      <img
+        src={filesApi.buildUrl(path)}
+        alt={alt}
+        loading="lazy"
+        onLoad={() => setLoaded(true)}
+        onError={() => setError(true)}
+        style={error ? { display: "none" } : { maxWidth: "100%", borderRadius: "8px" }}
+      />
+    </>
+  );
 }
 
 function VerdictBadge({ verdict }: { verdict: string }) {
