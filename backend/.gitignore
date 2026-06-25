@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# Virtual env (1.1GB — never push)
+venv/
+.venv/
+
+# Local secrets
+.env
+
+# Runtime data — ephemeral, recreated on the Space
+forensic_app.db
+*.db
+data_store/
+
+# Model weights — downloaded at Docker build time (see Dockerfile)
+weights/
